@@ -1,5 +1,6 @@
 import express from "express";
 import axios from "axios";
+import { google } from "googleapis";
 
 const app = express();
 app.use(express.json());
@@ -8,15 +9,36 @@ app.use(express.json());
 const VERIFY_TOKEN = process.env.VERIFICAR_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const SHEET_ID = process.env.SHEET_ID;
 
-// 🔹 VERIFICACIÓN
+// 🔹 GOOGLE AUTH
+const auth = new google.auth.GoogleAuth({
+  credentials: {
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n")
+  },
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+});
+
+const sheets = google.sheets({ version: "v4", auth });
+
+// 🔹 LEER SHEETS
+async function leerHoja(nombre) {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `'${nombre}'!A:Z`
+  });
+
+  return res.data.values || [];
+}
+
+// 🔹 WEBHOOK VERIFY
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verificado");
     return res.status(200).send(challenge);
   } else {
     return res.sendStatus(403);
@@ -35,10 +57,16 @@ app.post("/webhook", async (req, res) => {
 
       console.log("📩 Mensaje:", text);
 
-      await enviarMensaje(
-        from,
-        "Hola 👋 soy YubiBot 💜\n\nEstoy activo y funcionando 🚀"
-      );
+      // 🔥 PRUEBA: leer hoja "configuracion"
+      const datos = await leerHoja("configuracion");
+
+      let respuesta = "❌ No hay datos";
+
+      if (datos.length > 0) {
+        respuesta = `✅ Sheets conectado\nPrimera fila:\n${datos[0].join(" | ")}`;
+      }
+
+      await enviarMensaje(from, respuesta);
     }
 
     res.sendStatus(200);
@@ -67,7 +95,7 @@ async function enviarMensaje(numero, texto) {
   );
 }
 
-// 🔥 PUERTO CORRECTO (SOLO UNA VEZ)
+// 🔹 SERVIDOR
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
