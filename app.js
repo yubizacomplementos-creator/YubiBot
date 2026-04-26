@@ -4,12 +4,12 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
-// 🔹 VARIABLES DESDE RAILWAY
+// 🔹 VARIABLES
 const VERIFY_TOKEN = process.env.VERIFICAR_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// 🔹 VERIFICACIÓN WEBHOOK (META)
+// 🔹 VERIFICACIÓN
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -26,30 +26,29 @@ app.get("/webhook", (req, res) => {
 // 🔹 RECIBIR MENSAJES
 app.post("/webhook", async (req, res) => {
   try {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const message = changes?.value?.messages?.[0];
+    const message =
+      req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (message) {
       const from = message.from;
       const text = message.text?.body || "";
 
-      console.log("📩 Mensaje recibido:", text);
+      console.log("📩 Mensaje:", text);
 
-      // 🔥 RESPUESTA (LUEGO AQUÍ VA GEMINI)
-      const respuesta = `Hola 👋 soy YubiBot 💜\n\nRecibí tu mensaje:\n"${text}"\n\nPronto te atenderé con algo más pro 😉`;
-
-      await enviarMensaje(from, respuesta);
+      await enviarMensaje(
+        from,
+        "Hola 👋 soy YubiBot 💜\n\nEstoy activo y funcionando 🚀"
+      );
     }
 
     res.sendStatus(200);
   } catch (error) {
-    console.error("❌ Error webhook:", error.response?.data || error.message);
+    console.error("❌ Error:", error.message);
     res.sendStatus(500);
   }
 });
 
-// 🔹 FUNCIÓN ENVIAR MENSAJE
+// 🔹 ENVIAR MENSAJE
 async function enviarMensaje(numero, texto) {
   await axios.post(
     `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
@@ -68,7 +67,7 @@ async function enviarMensaje(numero, texto) {
   );
 }
 
-// 🔹 SERVIDOR (IMPORTANTE PARA RAILWAY)
+// 🔥 PUERTO CORRECTO (SOLO UNA VEZ)
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
