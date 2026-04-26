@@ -5,24 +5,48 @@ const axios = require("axios");
 const app = express();
 app.use(bodyParser.json());
 
-const VERIFY_TOKEN = "yubibot_token";
-const WHATSAPP_TOKEN = "EAANFtRzD2EABRVZC5bnYKdFAS5Wr4KD31fRgxPCyvNbi2eNAvOVtYOOEnYxiqWlyMwlm946K0mFDiRnnsK9o44PmggDWNvjqdQHnNLMKdkn1y7rySkD3jM7vBxyhCZADS8KfyOJcYsUKhLjD0TK0ZC87OlmmbncdpWSozShw7WRdxstQkNUGn9cqRw6ZAjaKFco4OuGkLbPXMZBYN98A9CSacYuWKNFlodmr9cVrHBKbLqxJ16qtufEQpvImIqwLdRLYZBExB7l7NZBi7YmZBi3ZBqPmVc5laFxgIhP98EBMZD";
-const PHONE_NUMBER_ID = "1007672212440440";
+// 🔐 VARIABLES DESDE RAILWAY
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// Verificación webhook
+// 🔹 VERIFICACIÓN WEBHOOK
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode && token === VERIFY_TOKEN) {
+    console.log("Webhook verificado ✅");
     return res.status(200).send(challenge);
   } else {
     return res.sendStatus(403);
   }
 });
 
-// Recibir mensajes
+// 🔹 FUNCIÓN PARA ENVIAR MENSAJES
+const enviarMensaje = async (to, mensaje) => {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        text: { body: mensaje }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  } catch (error) {
+    console.error("Error enviando mensaje:", error.response?.data || error.message);
+  }
+};
+
+// 🔹 RECIBIR MENSAJES
 app.post("/webhook", async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
@@ -32,34 +56,63 @@ app.post("/webhook", async (req, res) => {
     if (messages) {
       const message = messages[0];
       const from = message.from;
+      const texto = message.text?.body?.toLowerCase() || "";
 
-      console.log("Mensaje de:", from);
+      console.log("📩 Mensaje recibido:", texto);
 
-      await axios.post(
-        `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
-        {
-          messaging_product: "whatsapp",
-          to: from,
-          text: { body: "Hola 👋 soy YubiBot, ya estoy activo 🚀" }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      // 🔥 BIENVENIDA
+      if (texto.includes("hola")) {
+        await enviarMensaje(
+          from,
+          "Hola 👋 soy YubiBot 💖\n\nEstos son nuestros productos hoy:\n\nA. Camisetas\nB. Bolsos\nC. Accesorios\n\nResponde con la letra para ver opciones 🛍️"
+        );
+      }
+
+      // 👕 CAMISETAS
+      else if (texto === "a") {
+        await enviarMensaje(
+          from,
+          "👕 Camisetas disponibles:\n\n1. Blanca Festival\n2. Negra Premium\n\nResponde con el número para comprar"
+        );
+      }
+
+      // 👜 BOLSOS
+      else if (texto === "b") {
+        await enviarMensaje(
+          from,
+          "👜 Bolsos disponibles:\n\n1. Bolso Vallenato\n2. Bolso Clásico\n\nResponde con el número"
+        );
+      }
+
+      // 🛒 DETECTAR PEDIDO
+      else if (texto === "1" || texto === "2") {
+        console.log("🛒 PEDIDO DETECTADO DE:", from);
+
+        await enviarMensaje(
+          from,
+          "✨ Súper elección 💖\n\nPara continuar con tu pedido envíame:\n\n- Nombre\n- Ciudad\n- Dirección\n\nY lo procesamos de inmediato 🚀"
+        );
+      }
+
+      // ❓ RESPUESTA DEFAULT
+      else {
+        await enviarMensaje(
+          from,
+          "No entendí tu mensaje 😅\n\nEscribe *hola* para ver el catálogo"
+        );
+      }
     }
 
     res.sendStatus(200);
   } catch (error) {
-    console.error(error.response?.data || error.message);
+    console.error("Error webhook:", error.response?.data || error.message);
     res.sendStatus(500);
   }
 });
 
+// 🚀 SERVIDOR
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("YubiBot activo 🚀");
+  console.log("🚀 YubiBot activo en puerto", PORT);
 });
