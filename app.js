@@ -1,118 +1,83 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
+// v2.1 | YubiCupones | Webhook WhatsApp Cloud API
+// Líneas: 82
+
+import express from "express";
+import bodyParser from "body-parser";
+import "dotenv/config";
+import { manejarFlujo } from "./flujo.js";
 
 const app = express();
 app.use(bodyParser.json());
 
-// 🔐 VARIABLES DESDE RAILWAY
+// 🔐 VARIABLES (desde Railway)
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// 🔹 VERIFICACIÓN WEBHOOK
+// ==========================================
+// 🔹 1. VERIFICACIÓN DEL WEBHOOK (META)
+// ==========================================
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token === VERIFY_TOKEN) {
-    console.log("Webhook verificado ✅");
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("✅ Webhook verificado");
     return res.status(200).send(challenge);
   } else {
+    console.log("❌ Error de verificación");
     return res.sendStatus(403);
   }
 });
 
-// 🔹 FUNCIÓN PARA ENVIAR MENSAJES
-const enviarMensaje = async (to, mensaje) => {
-  try {
-    await axios.post(
-      `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: "whatsapp",
-        to,
-        text: { body: mensaje }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-  } catch (error) {
-    console.error("Error enviando mensaje:", error.response?.data || error.message);
-  }
-};
-
-// 🔹 RECIBIR MENSAJES
+// ==========================================
+// 🔹 2. RECEPCIÓN DE MENSAJES
+// ==========================================
 app.post("/webhook", async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
     const changes = entry?.changes?.[0];
-    const messages = changes?.value?.messages;
+    const value = changes?.value;
+    const message = value?.messages?.[0];
 
-    if (messages) {
-      const message = messages[0];
-      const from = message.from;
-      const texto = message.text?.body?.toLowerCase() || "";
-
-      console.log("📩 Mensaje recibido:", texto);
-
-      // 🔥 BIENVENIDA
-      if (texto.includes("hola")) {
-        await enviarMensaje(
-          from,
-          "Hola 👋 soy YubiBot 💖\n\nEstos son nuestros productos hoy:\n\nA. Camisetas\nB. Bolsos\nC. Accesorios\n\nResponde con la letra para ver opciones 🛍️"
-        );
-      }
-
-      // 👕 CAMISETAS
-      else if (texto === "a") {
-        await enviarMensaje(
-          from,
-          "👕 Camisetas disponibles:\n\n1. Blanca Festival\n2. Negra Premium\n\nResponde con el número para comprar"
-        );
-      }
-
-      // 👜 BOLSOS
-      else if (texto === "b") {
-        await enviarMensaje(
-          from,
-          "👜 Bolsos disponibles:\n\n1. Bolso Vallenato\n2. Bolso Clásico\n\nResponde con el número"
-        );
-      }
-
-      // 🛒 DETECTAR PEDIDO
-      else if (texto === "1" || texto === "2") {
-        console.log("🛒 PEDIDO DETECTADO DE:", from);
-
-        await enviarMensaje(
-          from,
-          "✨ Súper elección 💖\n\nPara continuar con tu pedido envíame:\n\n- Nombre\n- Ciudad\n- Dirección\n\nY lo procesamos de inmediato 🚀"
-        );
-      }
-
-      // ❓ RESPUESTA DEFAULT
-      else {
-        await enviarMensaje(
-          from,
-          "No entendí tu mensaje 😅\n\nEscribe *hola* para ver el catálogo"
-        );
-      }
+    // Si no hay mensaje, salir
+    if (!message) {
+      return res.sendStatus(200);
     }
 
-    res.sendStatus(200);
+    const from = message.from;
+    let texto = "";
+
+    // 🧠 Detectar tipo de mensaje
+    if (message.type === "text") {
+      texto = message.text.body;
+    } else if (message.type === "interactive") {
+      texto =
+        message.interactive?.button_reply?.title ||
+        message.interactive?.list_reply?.title ||
+        "";
+    } else {
+      // Ignorar audios, imágenes, etc.
+      return res.sendStatus(200);
+    }
+
+    console.log("📩 Mensaje recibido:", from, texto);
+
+    // 🚀 Enviar al flujo (tu lógica de cupones)
+    await manejarFlujo(from, texto);
+
+    return res.sendStatus(200);
+
   } catch (error) {
-    console.error("Error webhook:", error.response?.data || error.message);
-    res.sendStatus(500);
+    console.error("❌ Error webhook:", error.message);
+    return res.sendStatus(500);
   }
 });
 
-// 🚀 SERVIDOR
+// ==========================================
+// 🔹 3. SERVIDOR
+// ==========================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🚀 YubiBot activo en puerto", PORT);
+  console.log(`🚀 YubiBot activo en puerto ${PORT}`);
 });
