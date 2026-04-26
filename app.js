@@ -2,6 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import { leerMensajes } from "./sheets.js";
 
 dotenv.config();
 
@@ -12,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 // 🔹 TEST
 app.get("/", (req, res) => {
-  res.send("✅ YubiBot funcionando");
+  res.send("✅ YubiBot activo");
 });
 
 // 🔹 VERIFICACIÓN META
@@ -31,22 +32,27 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// 🔹 RECEPCIÓN MENSAJES
+// 🔹 RECIBIR MENSAJES
 app.post("/webhook", async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
-
     const message = value?.messages?.[0];
 
     if (message) {
       const from = message.from;
-      const text = message.text?.body;
+      const text = message.text?.body || "";
 
-      console.log("📩 Mensaje:", text);
+      console.log("📩 Mensaje recibido:", text);
 
-      // RESPUESTA SIMPLE
+      // 🔹 MENSAJE DESDE SHEETS
+      const respuestas = await leerMensajes("bienvenida");
+      const respuesta =
+        respuestas[Math.floor(Math.random() * respuestas.length)] ||
+        "Hola 👋";
+
+      // 🔹 RESPUESTA
       await fetch(
         `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
         {
@@ -58,19 +64,23 @@ app.post("/webhook", async (req, res) => {
           body: JSON.stringify({
             messaging_product: "whatsapp",
             to: from,
-            text: { body: "Hola 👋 ya estoy conectado correctamente" }
+            text: { body: respuesta }
           })
         }
       );
     }
 
     res.sendStatus(200);
-  } catch (err) {
-    console.error("❌ Error webhook:", err);
+  } catch (error) {
+    console.error("❌ Error:", error);
     res.sendStatus(500);
   }
 });
 
+// 🔹 ARRANQUE
+app.listen(PORT, () => {
+  console.log(`🚀 YubiBot corriendo en puerto ${PORT}`);
+});
 // 🔹 ARRANQUE (ESTO ES CLAVE)
 app.listen(PORT, () => {
   console.log(`🚀 YubiBot corriendo en puerto ${PORT}`);
