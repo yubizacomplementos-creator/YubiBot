@@ -18,13 +18,13 @@ app.get("/", (req, res) => {
 
 // 🔹 VERIFICACIÓN META
 app.get("/webhook", (req, res) => {
-  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+  const VERIFICAR_TOKEN = process.env.VERIFICAR_TOKEN;
 
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+  if (mode === "subscribe" && token === VERIFICAR_TOKEN) {
     console.log("✅ Webhook verificado");
     return res.status(200).send(challenge);
   } else {
@@ -78,10 +78,6 @@ app.post("/webhook", async (req, res) => {
 });
 
 // 🔹 ARRANQUE
-app.listen(PORT, () => {
-  console.log(`🚀 YubiBot corriendo en puerto ${PORT}`);
-});
-// 🔹 ARRANQUE (ESTO ES CLAVE)
 app.listen(PORT, () => {
   console.log(`🚀 YubiBot corriendo en puerto ${PORT}`);
 });
