@@ -6,8 +6,8 @@ const app = express();
 app.use(bodyParser.json());
 
 const VERIFY_TOKEN = "yubibot_token";
-const WHATSAPP_TOKEN = "TU_TOKEN_DE_META";
-const PHONE_NUMBER_ID = "TU_PHONE_NUMBER_ID";
+const WHATSAPP_TOKEN = "EAANFtRzD2EABRVZC5bnYKdFAS5Wr4KD31fRgxPCyvNbi2eNAvOVtYOOEnYxiqWlyMwlm946K0mFDiRnnsK9o44PmggDWNvjqdQHnNLMKdkn1y7rySkD3jM7vBxyhCZADS8KfyOJcYsUKhLjD0TK0ZC87OlmmbncdpWSozShw7WRdxstQkNUGn9cqRw6ZAjaKFco4OuGkLbPXMZBYN98A9CSacYuWKNFlodmr9cVrHBKbLqxJ16qtufEQpvImIqwLdRLYZBExB7l7NZBi7YmZBi3ZBqPmVc5laFxgIhP98EBMZD";
+const PHONE_NUMBER_ID = "1007672212440440";
 
 // Verificación webhook
 app.get("/webhook", (req, res) => {
